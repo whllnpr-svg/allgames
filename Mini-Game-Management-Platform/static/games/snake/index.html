@@ -37,18 +37,28 @@
             ctx.fillStyle='black'; ctx.fillRect(0,0,400,400);
             ctx.fillStyle='lime'; snake.forEach(p=>ctx.fillRect(p.x*20,p.y*20,18,18));
             ctx.fillStyle='red'; ctx.fillRect(food.x*20,food.y*20,18,18);
-            setTimeout(game, 100);
+            setTimeout(game, 250); // 将100ms改为250ms，减慢速度
         }
 
         async function submit() {
             const user = JSON.parse(localStorage.getItem('user'));
             if(!user) return alert("请先登录！"), window.location.href='/';
-            await fetch('/api/scores', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({game_key:'snake', user_id: user.id, score: score})
-            });
-            window.location.href='/';
+            try {
+                const response = await fetch('/api/scores', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({game_key:'snake', user_id: user.id, score: score})
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    alert("提交积分失败: " + (errorData.detail || "未知错误"));
+                } else {
+                    window.location.href='/';
+                }
+            } catch (err) {
+                alert("网络错误，提交积分失败");
+                console.error(err);
+            }
         }
 
         window.onkeydown = e => {

@@ -80,24 +80,32 @@ async def get_games():
 
 @app.post("/api/scores")
 async def submit_score(data: ScoreSubmit):
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO minigame_scores (game_key, user_id, score) VALUES (%s, %s, %s)",
-                   (data.game_key, data.user_id, data.score))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return {"status": "success"}
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+        print(f"Submitting score: {data}") # 添加日志
+        cursor.execute("INSERT INTO minigame_scores (game_key, user_id, score) VALUES (%s, %s, %s)",
+                       (data.game_key, data.user_id, data.score))
+        conn.commit()
+        return {"status": "success"}
+    except Exception as e:
+        print(f"Error submitting score: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if 'cursor' in locals(): cursor.close()
+        if 'conn' in locals(): conn.close()
 
 @app.get("/api/scores/{game_key}")
 async def get_leaderboard(game_key: str):
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor(dictionary=True)
     query = """
-        SELECT u.username as player_name, u.avatar_url, s.score 
+        SELECT u.username as player_name, u.avatar_url, MAX(s.score) as score 
         FROM minigame_scores s 
         JOIN minigame_users u ON s.user_id = u.id 
-        WHERE s.game_key = %s ORDER BY s.score DESC LIMIT 10
+        WHERE s.game_key = %s 
+        GROUP BY u.id, u.username, u.avatar_url
+        ORDER BY score DESC LIMIT 10
     """
     cursor.execute(query, (game_key,))
     res = cursor.fetchall()
